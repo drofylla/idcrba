@@ -1,57 +1,19 @@
-func (a *App) startAutoReadMonitor() {
-	var lastCardState bool = false
-
-	for {
-		// Check if auto-read is enabled
-		appState.RLock()
-		autoReadEnabled := appState.AutoRead
-		isReading := appState.IsReading
-		appState.RUnlock()
-
-		if !autoReadEnabled {
-			time.Sleep(2 * time.Second)
-			continue
-		}
-
-		status := a.CheckReaderStatus()
-
-		// Card inserted and we're not currently reading
-		if status.HasCard && !lastCardState && !isReading {
-			log.Println("MyKad detected! Auto-reading data...")
-
-			// Read the card data
-			data, filePath, err := a.ReadAndSaveCardData()
-			if err != nil {
-				log.Printf("Error auto-reading card: %v", err)
-			} else {
-				appState.Lock()
-				appState.CurrentData = data
-				appState.LastReadTime = time.Now()
-				appState.ReaderName = status.Reader
-				appState.Unlock()
-
-				log.Printf("✅ Auto-read successful! Saved to: %s", filePath)
-
-				// Notify frontend
-				runtime.EventsEmit(a.ctx, "autoReadCompleted", map[string]interface{}{
-					"data":     data,
-					"filePath": filePath,
-				})
-			}
-		}
-
-		// Card removed
-		if !status.HasCard && lastCardState {
-			log.Println("MyKad removed")
-			appState.Lock()
-			appState.CurrentData = nil
-			appState.Unlock()
-
-			// Notify frontend
-			runtime.EventsEmit(a.ctx, "cardRemoved", nil)
-		}
-
-		lastCardState = status.HasCard
-		time.Sleep(1 * time.Second) // Check every second
-	}
+{
+  "name": "MyKadReader",
+  "outputfilename": "MyKadReader",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Your Name",
+    "email": "your@email.com"
+  },
+  "info": {
+    "companyName": "MyKad Reader",
+    "productName": "MyKad Reader Desktop",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2024",
+    "comments": "MyKad Reader Desktop Application"
+  }
 }
