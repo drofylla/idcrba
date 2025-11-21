@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>MyKad Reader Desktop</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script
+            src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"
+            defer
+        ></script>
+        <!--<link rel="stylesheet" href="./src/styles.css" />-->
+    </head>
+    <body class="bg-gray-50">
+        <div id="app" x-data="app()" x-init="init()">
+            <!-- Header -->
+            <header
+                class="bg-gradient-to-r from-blue-600 to-purple-700 text-white shadow-lg"
+            >
+                <div class="container mx-auto px-6 py-8">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-3xl font-bold">
+                                🪪 MyKad Reader Desktop
+                            </h1>
+                            <p class="text-blue-100 mt-2">
+                                Windows Desktop Application for MyKad Reading
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <div
+                                class="text-sm text-blue-200"
+                                x-text="`v${appInfo.version}`"
+                            ></div>
+                            <div
+                                class="text-xs text-blue-300"
+                                x-text="appInfo.status"
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="container mx-auto px-6 py-8">
+                <!-- Status Cards -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Reader Status -->
+                    <div
+                        class="bg-white rounded-xl shadow-lg p-6 border-l-4"
+                        :class="{
+                 'border-green-500': readerStatus.connected && readerStatus.has_card,
+                 'border-blue-500': readerStatus.connected && !readerStatus.has_card,
+                 'border-red-500': !readerStatus.connected
+               }"
+                    >
+                        <h3 class="text-lg font-semibold mb-3">
+                            Reader Status
+                        </h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center space-x-2">
+                                <div
+                                    class="w-3 h-3 rounded-full animate-pulse"
+                                    :class="{
+                       'bg-green-500': readerStatus.connected && readerStatus.has_card,
+                       'bg-blue-500': readerStatus.connected && !readerStatus.has_card,
+                       'bg-red-500': !readerStatus.connected
+                     }"
+                                ></div>
+                                <span
+                                    class="font-medium"
+                                    x-text="readerStatus.message"
+                                ></span>
+                            </div>
+                            <div
+                                class="text-sm text-gray-600"
+                                x-show="readerStatus.reader"
+                                x-text="'Reader: ' + readerStatus.reader"
+                            ></div>
+                        </div>
+                    </div>
+
+                    <!-- Auto Read Status -->
+                    <div
+                        class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-orange-500"
+                    >
+                        <h3 class="text-lg font-semibold mb-3">Auto-Read</h3>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-700"
+                                >Automatic card reading</span
+                            >
+                            <label
+                                class="relative inline-flex items-center cursor-pointer"
+                            >
+                                <input
+                                    type="checkbox"
+                                    class="sr-only peer"
+                                    x-model="autoReadEnabled"
+                                    @change="toggleAutoRead()"
+                                />
+                                <div
+                                    class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"
+                                ></div>
+                            </label>
+                        </div>
+                        <div
+                            class="mt-2 text-sm"
+                            :class="autoReadEnabled ? 'text-green-600' : 'text-gray-500'"
+                        >
+                            <span
+                                x-text="autoReadEnabled ? '🟢 Auto-read active' : '⚪ Auto-read disabled'"
+                            ></span>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div
+                        class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500"
+                    >
+                        <h3 class="text-lg font-semibold mb-3">Actions</h3>
+                        <div class="space-y-3">
+                            <button
+                                @click="readMyKad()"
+                                :disabled="!readerStatus.has_card || isLoading"
+                                class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2"
+                                :class="{'opacity-50 cursor-not-allowed': !readerStatus.has_card || isLoading}"
+                            >
+                                <svg
+                                    x-show="isLoading"
+                                    class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <circle
+                                        class="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        stroke-width="4"
+                                    ></circle>
+                                    <path
+                                        class="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                    ></path>
+                                </svg>
+                                <span
+                                    x-text="isLoading ? 'Reading MyKad...' : 'Read MyKad'"
+                                ></span>
+                            </button>
+
+                            <button
+                                @click="refreshStatus()"
+                                class="w-full bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                            >
+                                Refresh Status
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notifications -->
+                <div
+                    x-show="notification.show"
+                    x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 transform scale-95"
+                    x-transition:enter-end="opacity-100 transform scale-100"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100 transform scale-100"
+                    x-transition:leave-end="opacity-0 transform scale-95"
+                    class="fixed top-4 right-4 z-50 max-w-sm w-full"
+                >
+                    <div
+                        class="rounded-lg shadow-lg p-4 border-l-4"
+                        :class="{
+                 'bg-green-50 border-green-500 text-green-800': notification.type === 'success',
+                 'bg-red-50 border-red-500 text-red-800': notification.type === 'error',
+                 'bg-blue-50 border-blue-500 text-blue-800': notification.type === 'info'
+               }"
+                    >
+                        <div class="flex items-start space-x-3">
+                            <div class="flex-shrink-0">
+                                <span x-show="notification.type === 'success'"
+                                    >✅</span
+                                >
+                                <span x-show="notification.type === 'error'"
+                                    >❌</span
+                                >
+                                <span x-show="notification.type === 'info'"
+                                    >ℹ️</span
+                                >
+                            </div>
+                            <div class="flex-1">
+                                <p
+                                    class="text-sm font-medium"
+                                    x-text="notification.message"
+                                ></p>
+                                <p
+                                    x-show="notification.details"
+                                    class="text-xs mt-1 opacity-75"
+                                    x-text="notification.details"
+                                ></p>
+                            </div>
+                            <button
+                                @click="hideNotification()"
+                                class="flex-shrink-0 ml-4 text-gray-400 hover:text-gray-600"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Display -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div class="border-b border-gray-200 px-6 py-4">
+                        <h2 class="text-xl font-semibold text-gray-800">
+                            MyKad Data
+                        </h2>
+                        <div
+                            class="text-sm text-gray-600 mt-1"
+                            x-show="lastReadTime"
+                        >
+                            Last read: <span x-text="lastReadTime"></span>
+                        </div>
+                    </div>
+
+                    <div class="p-6">
+                        <template x-if="!mykadData">
+                            <div class="text-center py-12">
+                                <div class="text-gray-400 text-6xl mb-4">
+                                    🪪
+                                </div>
+                                <h3
+                                    class="text-lg font-medium text-gray-900 mb-2"
+                                >
+                                    No MyKad Data
+                                </h3>
+                                <p
+                                    class="text-gray-600"
+                                    x-text="readerStatus.has_card ? 'Click &quot;Read MyKad&quot; to read data' : 'Insert a MyKad card to begin reading'"
+                                ></p>
+                            </div>
+                        </template>
+
+                        <template x-if="mykadData">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Personal Information -->
+                                <div class="space-y-4">
+                                    <h3
+                                        class="text-lg font-semibold text-gray-800 border-b pb-2"
+                                    >
+                                        Personal Information
+                                    </h3>
+                                    <div class="space-y-3">
+                                        <div
+                                            x-data="DataField('Name', mykadData.name)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                        <div
+                                            x-data="DataField('IC Number', mykadData.ic_number)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                        <div
+                                            x-data="DataField('Sex', mykadData.sex)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                        <div
+                                            x-data="DataField('Date of Birth', mykadData.date_of_birth)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                        <div
+                                            x-data="DataField('State of Birth', mykadData.state_of_birth)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                        <div
+                                            x-data="DataField('Religion', mykadData.religion)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Address Information -->
+                                <div class="space-y-4">
+                                    <h3
+                                        class="text-lg font-semibold text-gray-800 border-b pb-2"
+                                    >
+                                        Address Information
+                                    </h3>
+                                    <div class="space-y-3">
+                                        <div
+                                            x-data="DataField('Address Line 1', mykadData.address_1)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                        <div
+                                            x-data="DataField('Address Line 2', mykadData.address_2)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                        <div
+                                            x-data="DataField('Address Line 3', mykadData.address_3)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                        <div
+                                            x-data="DataField('City', mykadData.city)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                        <div
+                                            x-data="DataField('Postcode', mykadData.postcode)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                        <div
+                                            x-data="DataField('Read Time', mykadData.read_time)"
+                                            class="flex flex-col space-y-1"
+                                        >
+                                            <label
+                                                class="text-sm font-medium text-gray-600"
+                                                x-text="label"
+                                            ></label>
+                                            <div
+                                                class="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded border"
+                                                x-text="value || 'N/A'"
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Save Information -->
+                        <div
+                            x-show="lastFilePath"
+                            class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg"
+                        >
+                            <div class="flex items-center space-x-3">
+                                <div class="flex-shrink-0 text-green-500">
+                                    ✅
+                                </div>
+                                <div>
+                                    <p
+                                        class="text-sm font-medium text-green-800"
+                                    >
+                                        Data saved successfully
+                                    </p>
+                                    <p
+                                        class="text-xs text-green-600 mt-1"
+                                        x-text="'Location: ' + lastFilePath"
+                                    ></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Saved Files Section -->
+                <div
+                    x-show="savedFiles.length > 0"
+                    class="mt-8 bg-white rounded-xl shadow-lg overflow-hidden"
+                >
+                    <div class="border-b border-gray-200 px-6 py-4">
+                        <h2 class="text-xl font-semibold text-gray-800">
+                            Saved Data Files
+                        </h2>
+                    </div>
+                    <div class="p-6">
+                        <div
+                            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                        >
+                            <template x-for="file in savedFiles" :key="file">
+                                <div
+                                    class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
+                                >
+                                    <div
+                                        class="flex items-center justify-between mb-2"
+                                    >
+                                        <span
+                                            class="text-sm font-medium text-gray-700 truncate"
+                                            x-text="file"
+                                        ></span>
+                                        <button
+                                            @click="loadFile(file)"
+                                            class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                        >
+                                            Load
+                                        </button>
+                                    </div>
+                                    <div
+                                        class="text-xs text-gray-500"
+                                        x-text="getFileDate(file)"
+                                    ></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Footer -->
+            <footer class="bg-gray-800 text-white py-6 mt-12">
+                <div class="container mx-auto px-6 text-center">
+                    <p>MyKad Reader Desktop v1.0.0</p>
+                    <p class="text-gray-400 text-sm mt-1">
+                        Powered by Alpine.js & Wails
+                    </p>
+                </div>
+            </footer>
+        </div>
+
+        <script>
+            function app() {
+                return {
+                    readerStatus: {
+                        connected: false,
+                        reader: "",
+                        message: "Checking status...",
+                        has_card: false,
+                    },
+                    mykadData: null,
+                    isLoading: false,
+                    autoReadEnabled: false,
+                    lastReadTime: "",
+                    lastFilePath: "",
+                    savedFiles: [],
+                    appInfo: {
+                        version: "1.0.0",
+                        status: "Initializing...",
+                    },
+                    notification: {
+                        show: false,
+                        type: "info",
+                        message: "",
+                        details: "",
+                    },
+
+                    async init() {
+                        console.log("Initializing MyKad Reader...");
+                        await this.refreshStatus();
+                        await this.loadAutoReadStatus();
+                        await this.loadLatestData();
+                        await this.loadSavedFiles();
+
+                        setInterval(() => {
+                            this.refreshStatus();
+                        }, 3000);
+
+                        this.setupEventListeners();
+                    },
+
+                    setupEventListeners() {
+                        if (window.runtime && window.runtime.EventsOn) {
+                            window.runtime.EventsOn(
+                                "autoReadCompleted",
+                                (data) => {
+                                    this.showNotification(
+                                        "success",
+                                        "Auto-read completed!",
+                                        "Data saved to: " + data.filePath,
+                                    );
+                                    this.mykadData = data.data;
+                                    this.lastReadTime = data.data.read_time;
+                                    this.lastFilePath = data.filePath;
+                                    this.loadSavedFiles();
+                                },
+                            );
+
+                            window.runtime.EventsOn("cardRemoved", () => {
+                                this.showNotification(
+                                    "info",
+                                    "MyKad removed",
+                                    "Card has been removed from the reader",
+                                );
+                            });
+
+                            window.runtime.EventsOn(
+                                "autoReadError",
+                                (error) => {
+                                    this.showNotification(
+                                        "error",
+                                        "Auto-read failed",
+                                        error,
+                                    );
+                                },
+                            );
+
+                            window.runtime.EventsOn("readCompleted", (data) => {
+                                if (data.success) {
+                                    this.showNotification(
+                                        "success",
+                                        "Manual read completed!",
+                                        "Data saved to: " + data.filePath,
+                                    );
+                                }
+                            });
+
+                            window.runtime.EventsOn(
+                                "autoReadStatusChanged",
+                                (enabled) => {
+                                    this.autoReadEnabled = enabled;
+                                },
+                            );
+                        }
+                    },
+
+                    showNotification(type, message, details = "") {
+                        this.notification = {
+                            show: true,
+                            type,
+                            message,
+                            details,
+                        };
+
+                        if (type !== "error") {
+                            setTimeout(() => {
+                                this.hideNotification();
+                            }, 5000);
+                        }
+                    },
+
+                    hideNotification() {
+                        this.notification.show = false;
+                    },
+
+                    async refreshStatus() {
+                        try {
+                            const status =
+                                await window.go.main.App.GetReaderStatus();
+                            this.readerStatus = status;
+                            this.appInfo.status = status.has_card
+                                ? "Card Ready"
+                                : "Waiting for Card";
+                        } catch (error) {
+                            console.error("Error refreshing status:", error);
+                            this.readerStatus = {
+                                connected: false,
+                                reader: "Error",
+                                message: "Failed to check reader status",
+                                has_card: false,
+                            };
+                        }
+                    },
+
+                    async readMyKad() {
+                        if (!this.readerStatus.has_card) {
+                            this.showNotification(
+                                "error",
+                                "No MyKad detected",
+                                "Please insert a MyKad card first",
+                            );
+                            return;
+                        }
+
+                        this.isLoading = true;
+                        try {
+                            const result = await window.go.main.App.ReadMyKad();
+                            const data = JSON.parse(result);
+
+                            if (data.success) {
+                                this.mykadData = data.data;
+                                this.lastReadTime = data.data.read_time;
+                                this.lastFilePath = data.filePath;
+                                this.showNotification(
+                                    "success",
+                                    "MyKad data read successfully!",
+                                    "Saved to: " + data.filePath,
+                                );
+                                await this.loadSavedFiles();
+                            }
+                        } catch (error) {
+                            console.error("Error reading MyKad:", error);
+                            this.showNotification(
+                                "error",
+                                "Failed to read MyKad",
+                                error.toString(),
+                            );
+                        } finally {
+                            this.isLoading = false;
+                        }
+                    },
+
+                    async loadLatestData() {
+                        try {
+                            const result =
+                                await window.go.main.App.GetLatestData();
+                            const data = JSON.parse(result);
+
+                            if (data.hasData) {
+                                this.mykadData = data.data;
+                                this.lastReadTime = data.readTime;
+                            }
+                        } catch (error) {
+                            console.error("Error loading latest data:", error);
+                        }
+                    },
+
+                    async toggleAutoRead() {
+                        try {
+                            await window.go.main.App.SetAutoRead(
+                                this.autoReadEnabled,
+                            );
+                            this.showNotification(
+                                "info",
+                                this.autoReadEnabled
+                                    ? "Auto-read enabled"
+                                    : "Auto-read disabled",
+                                this.autoReadEnabled
+                                    ? "Card will be read automatically when inserted"
+                                    : "Manual reading only",
+                            );
+                        } catch (error) {
+                            console.error("Error setting auto-read:", error);
+                            this.autoReadEnabled = !this.autoReadEnabled;
+                        }
+                    },
+
+                    async loadAutoReadStatus() {
+                        try {
+                            this.autoReadEnabled =
+                                await window.go.main.App.GetAutoReadStatus();
+                        } catch (error) {
+                            console.error(
+                                "Error loading auto-read status:",
+                                error,
+                            );
+                        }
+                    },
+
+                    async loadSavedFiles() {
+                        try {
+                            const files =
+                                await window.go.main.App.GetSavedDataFiles();
+                            this.savedFiles = files;
+                        } catch (error) {
+                            console.error("Error loading saved files:", error);
+                        }
+                    },
+
+                    async loadFile(filename) {
+                        try {
+                            const result =
+                                await window.go.main.App.LoadDataFromFile(
+                                    filename,
+                                );
+                            const data = JSON.parse(result);
+
+                            if (data.success) {
+                                this.mykadData = data.data;
+                                this.lastReadTime = data.data.read_time;
+                                this.lastFilePath = data.filePath;
+                                this.showNotification(
+                                    "success",
+                                    "Data loaded from file",
+                                    "Loaded: " + filename,
+                                );
+                            }
+                        } catch (error) {
+                            console.error("Error loading file:", error);
+                            this.showNotification(
+                                "error",
+                                "Failed to load file",
+                                error.toString(),
+                            );
+                        }
+                    },
+
+                    getFileDate(filename) {
+                        const match = filename.match(/(\d{8})-(\d{6})/);
+                        if (match) {
+                            const dateStr = match[1];
+                            const timeStr = match[2];
+                            return (
+                                dateStr.slice(6, 8) +
+                                "/" +
+                                dateStr.slice(4, 6) +
+                                "/" +
+                                dateStr.slice(0, 4) +
+                                " " +
+                                timeStr.slice(0, 2) +
+                                ":" +
+                                timeStr.slice(2, 4) +
+                                ":" +
+                                timeStr.slice(4, 6)
+                            );
+                        }
+                        return "Unknown date";
+                    },
+                };
+            }
+
+            function DataField(label, value) {
+                return {
+                    label,
+                    value,
+                    init() {
+                        // Component initialization
+                    },
+                };
+            }
+
+            document.addEventListener("alpine:init", () => {
+                Alpine.data("DataField", DataField);
+            });
+        </script>
+    </body>
+</html>
