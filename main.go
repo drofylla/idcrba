@@ -150,3 +150,49 @@ func (a *App) SaveDataToJson(data MyKadData) (string, error) {
 	log.Printf("Data saved to: %s", filePath)
 	return filePath, nil
 }
+
+func (a *App) CheckReaderStatus() ReaderStatus {
+	context, err := scard.EstablishContext()
+	if err != nil {
+		return ReaderStatus{
+			Connected: false,
+			Message:   fmt.Sprintf("Failed to establish context: %v", err),
+			HasCard:   false,
+		}
+	}
+	defer context.Release()
+
+	readers, err := context.ListReaders()
+	if err != nil {
+		return ReaderStatus{
+			Connected: false,
+			Message:   fmt.Sprintf("Failed to list readers: %v", err),
+			HasCard:   false,
+		}
+	}
+	if len(readers) == 0 {
+		return ReaderStatus{
+			Connected: false,
+			Message:   "No smart card readers found",
+			HasCard:   false,
+		}
+	}
+
+	card, err := context.Connect(readers[0], scard.ShareShared, scard.ProtocolAny)
+	if err != nil {
+		return ReaderStatus{
+			Connected: true,
+			Reader:    readers[0],
+			Message:   "Reader ready - please insert MyKad",
+			HasCard:   false,
+		}
+	}
+	defer card.Disconnect(scard.LeaveCard)
+
+	return ReaderStatus{
+		Connected: true,
+		Reader:    readers[0],
+		Message:   "MyKad detected and ready to read",
+		HasCard:   true,
+	}
+}
