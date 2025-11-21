@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ebfe/scard"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type App struct {
@@ -284,4 +285,153 @@ func (a *App) ReadCardData() (*MyKadData, err) {
 	data.ReadTime = time.Now().Format("2006-01-02 15:04:05")
 
 	return &data, nil
+}
+
+func (a *App) ReadAndSaveCardData() (*MyKadData, string, error) {
+	data, err := a.ReadCardData()
+	if err != nil {
+		return nil, "", err
+	}
+
+	filePath, err := a.SaveDataToJSON(*data)
+	if err != nil {
+		return data, "", err
+	}
+
+	return data, filePath, nil
+}
+
+// frontend exposed functions
+
+func (a *App) GetReaderStatus() ReaderStatus {
+	return a.CheckReaderStatus()
+}
+
+func (a *App) ReadMyKad() (string, error) {
+	appState.Lock()
+	appState.IsReading = true
+	appState.Unlock()
+
+	defer func() {
+		appState.Lock()
+		appState.IsReading = false
+		appState.Unlock()
+	}()
+
+	data, filePath, err := a.ReadAndSaveCardData()
+	if err != nil {
+		return "", err
+	}
+
+	appState.Lock()
+	appState.CurrentData = data
+	appState.LastReadTime = time.Now()
+	appState.Unlock()
+
+	result := map[string]interface{}{
+		"data":     data,
+		"filePath": filePath,
+		"success":  true,
+	}
+
+	jsonData, err := json.Marshal(result)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonData), nil
+}
+
+func (a *App) GetLatestData() (string, error) {
+	appState.RLock()
+	defer appState.RUnlock()
+
+	if appState.CurrentData == nil {
+		return `{"error": "No data available"}`, nil
+	}
+
+	result := map[string]interface{}{
+		"data":     appState.CurrentData,
+		"readTime": appState.LastReadTime.Format("2006-01-02 15:04:05"),
+		"hasData":  true,
+	}
+
+	jsonData, err := json.Marshal(result)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonData), nil
+}
+
+func (a *App) SetAutoRead(enabled bool) {
+	appState.Lock()
+	appState.AutoRead = enabled
+	appState.Unlock()
+}
+
+func (a *App) GetAutoReadStatus() bool {
+	appState.RLock()
+	defer appState.RUnlock()
+	return appState.AutoRead
+}
+
+//Auto read screen
+
+func (a *App) startAutoReadMonitor() {
+	var lastCardState bool = false
+
+	for {
+		// Check if auto-read is enabled
+		appState.RLock()
+		autoReadEnabled := appState.AutoRead
+		isReading := appState.IsReading
+		appState.RUnlock()
+
+		if !autoReadEnabled {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		status := a.CheckReaderStatus()
+
+		// Card inserted
+		if status.HasCard && !lastCardState && !isReading {
+			log.Println("MyKad detected! Auto-reading data...")
+
+			// Read the card data
+			data, filePath, err := a.ReadAndSaveCardData()
+			if err != nil {
+				log.Printf("Error auto-reading card: %v", err)
+			} else {
+				appState.Lock()
+				appState.CurrentData = data
+				appState.LastReadTime = time.Now()
+				appState.ReaderName = status.Reader
+				appState.Unlock()
+
+				log.Printf("Auto-read successful! Saved to: %s", filePath)
+
+				// Notify frontend
+				runtime.EventsEmit(a.ctx, "autoReadCompleted", map[string]interface{}{
+					"data":     data,
+					"filePath": filePath,
+				})
+			}
+		}
+
+		// Card removed
+		if !status.HasCard && lastCardState {
+			log.Println("MyKad removed")
+			appState.Lock()
+			appState.CurrentData = nil
+			appState.Unlock()
+
+			// Notify frontend
+			runtime.EventsEmit(a.ctx, "cardRemoved", nil)
+		}
+
+		lastCardState = status.HasCard
+		time.Sleep(1 * time.Second) // Check every second
+	}
 }
