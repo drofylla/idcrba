@@ -196,3 +196,92 @@ func (a *App) CheckReaderStatus() ReaderStatus {
 		HasCard:   true,
 	}
 }
+
+func (a *App) ReadCardData() (*MyKadData, err) {
+	context, err := scard.EstablishContext()
+	if err != nil {
+		return nil, fmt.Errorf("unable to establish context: %v", err)
+	}
+	defer context.Release()
+
+	readers, err := context.ListReaders()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list readers: %v", err)
+	}
+	if len(readers) == 0 {
+		return nil, fmt.Errorf("no smart card readers found")
+	}
+
+	card, err := context.Connect(readers[0], scard.ShareShared, scard.ProtocolAny)
+	if err != nil {
+		return nil, fmt.Errorf("unable to connect to reader: %v", err)
+	}
+	defer card.Disconnect(scard.LeaveCard)
+
+	//select jpn app
+	_, err = sendAPDU(card, apduSelectJPN)
+	if err != nil {
+		return nil, fmt.Errorf("unable to select JPN application: %v", err)
+	}
+
+	var data MyKadData
+
+	bName, err := readData(card, offsetName, lengthName)
+	if err == nil {
+		data.Name = cleanString(bName)
+	}
+
+	bIC, err := readData(card, offsetIC, lengthIC)
+	if err == nil {
+		data.ICNumber = cleanString(bIC)
+	}
+
+	bSex, err := readData(card, offsetSex, lengthSex)
+	if err == nil {
+		data.Sex = cleanString(bSex)
+	}
+
+	bDOB, err := readData(card, offsetDOB, lengthDOB)
+	if err == nil {
+		data.DOB = cleanString(bDOB)
+	}
+
+	bStateBirth, err := readData(card, offsetStateBirth, lengthStateBirth)
+	if err == nil {
+		data.StateOfBirth = cleanString(bStateBirth)
+	}
+
+	bAddr1, err := readData(card, offsetAddr1, lengthAddr1)
+	if err == nil {
+		data.Address1 = cleanString(bAddr1)
+	}
+
+	bAddr2, err := readData(card, offsetAddr2, lengthAddr2)
+	if err == nil {
+		data.Address2 = cleanString(bAddr2)
+	}
+
+	bAddr3, err := readData(card, offsetAddr3, lengthAddr3)
+	if err == nil {
+		data.Address3 = cleanString(bAddr3)
+	}
+
+	bPostcode, err := readData(card, offsetPostcode, lengthPostcode)
+	if err == nil {
+		data.Postcode = cleanString(bPostcode)
+	}
+
+	bCity, err := readData(card, offsetCity, lengthCity)
+	if err == nil {
+		data.City = cleanString(bCity)
+	}
+
+	bReligion, err := readData(card, offsetReligion, lengthReligion)
+	if err == nil {
+		data.Religion = cleanString(bReligion)
+	}
+
+	data.ReadTime = time.Now().Format("2006-01-02 15:04:05")
+
+	return &data, nil
+}
